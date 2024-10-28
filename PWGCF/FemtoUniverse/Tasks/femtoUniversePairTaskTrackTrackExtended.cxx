@@ -36,6 +36,7 @@
 #include "PWGCF/FemtoUniverse/Core/FemtoUniverseDetaDphiStar.h"
 #include "PWGCF/FemtoUniverse/Core/FemtoUtils.h"
 #include "PWGCF/FemtoUniverse/Core/FemtoUniverseTrackSelection.h"
+#include "PWGCF/FemtoUniverse/Core/FemtoUniverseEfficiencyCalculator.h"
 
 using namespace o2;
 using namespace o2::analysis::femtoUniverse;
@@ -164,6 +165,9 @@ struct femtoUniversePairTaskTrackTrackExtended {
   HistogramRegistry qaRegistry{"TrackQA", {}, OutputObjHandlingPolicy::AnalysisObject};
   HistogramRegistry resultRegistry{"Correlations", {}, OutputObjHandlingPolicy::AnalysisObject};
   HistogramRegistry MixQaRegistry{"MixQaRegistry", {}, OutputObjHandlingPolicy::AnalysisObject};
+
+  EfficiencyCalculator<femtoUniversePairTaskTrackTrackExtended> efficiencyCalculator{*this};
+  HistogramRegistry efficiencyRegistry{"Efficiency", {}, OutputObjHandlingPolicy::AnalysisObject};
 
   /// @brief Counter for particle swapping
   int fNeventsProcessed = 0;
@@ -362,6 +366,11 @@ struct femtoUniversePairTaskTrackTrackExtended {
       //                        twotracksconfigs.ConfCutTable->get("PartOne", "nSigmaTPCTOF"))) {
       //   continue;
       // }
+
+      if (isMC) {
+        efficiencyCalculator.doMCGen<1>(part);
+      }
+
       if (trackonefilter.ConfIsTrackOneIdentified) {
         if (!IsParticleNSigma((int8_t)1, part.p(), trackCuts.getNsigmaTPC(part, o2::track::PID::Proton), trackCuts.getNsigmaTOF(part, o2::track::PID::Proton), trackCuts.getNsigmaTPC(part, o2::track::PID::Pion), trackCuts.getNsigmaTOF(part, o2::track::PID::Pion), trackCuts.getNsigmaTPC(part, o2::track::PID::Kaon), trackCuts.getNsigmaTOF(part, o2::track::PID::Kaon))) {
           continue;
@@ -386,6 +395,11 @@ struct femtoUniversePairTaskTrackTrackExtended {
         //                        twotracksconfigs.ConfCutTable->get("PartTwo", "nSigmaTPCTOF"))) {
         //   continue;
         // }
+
+        if (isMC) {
+          efficiencyCalculator.doMCGen<2>(part);
+        }
+
         if (tracktwofilter.ConfIsTrackTwoIdentified) {
           if (!IsParticleNSigma((int8_t)2, part.p(), trackCuts.getNsigmaTPC(part, o2::track::PID::Proton), trackCuts.getNsigmaTOF(part, o2::track::PID::Proton), trackCuts.getNsigmaTPC(part, o2::track::PID::Pion), trackCuts.getNsigmaTOF(part, o2::track::PID::Pion), trackCuts.getNsigmaTPC(part, o2::track::PID::Kaon), trackCuts.getNsigmaTOF(part, o2::track::PID::Kaon))) {
             continue;
