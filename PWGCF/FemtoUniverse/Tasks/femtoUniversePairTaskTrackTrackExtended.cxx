@@ -16,6 +16,7 @@
 /// \author Anton Riedel, TU München, anton.riedel@tum.de
 /// \author Zuzanna Chochulska, WUT Warsaw & CTU Prague, zchochul@cern.ch
 
+#include <type_traits>
 #include <vector>
 #include "Framework/AnalysisTask.h"
 #include "Framework/runDataProcessing.h"
@@ -166,7 +167,7 @@ struct femtoUniversePairTaskTrackTrackExtended {
   HistogramRegistry resultRegistry{"Correlations", {}, OutputObjHandlingPolicy::AnalysisObject};
   HistogramRegistry MixQaRegistry{"MixQaRegistry", {}, OutputObjHandlingPolicy::AnalysisObject};
 
-  EfficiencyCalculator<femtoUniversePairTaskTrackTrackExtended> efficiencyCalculator{*this};
+  EfficiencyCalculator<femtoUniversePairTaskTrackTrackExtended> efficiencyCalculator{this};
   HistogramRegistry efficiencyRegistry{"Efficiency", {}, OutputObjHandlingPolicy::AnalysisObject};
 
   /// @brief Counter for particle swapping
@@ -367,8 +368,8 @@ struct femtoUniversePairTaskTrackTrackExtended {
       //   continue;
       // }
 
-      if (isMC) {
-        efficiencyCalculator.doMCGen<1>(part);
+      if constexpr (isMC) {
+        efficiencyCalculator.fillMCTruth<1>(part);
       }
 
       if (trackonefilter.ConfIsTrackOneIdentified) {
@@ -396,8 +397,8 @@ struct femtoUniversePairTaskTrackTrackExtended {
         //   continue;
         // }
 
-        if (isMC) {
-          efficiencyCalculator.doMCGen<2>(part);
+        if constexpr (isMC) {
+          efficiencyCalculator.fillMCTruth<2>(part);
         }
 
         if (tracktwofilter.ConfIsTrackTwoIdentified) {
