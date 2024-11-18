@@ -17,6 +17,7 @@
 /// \author Zuzanna Chochulska, WUT Warsaw & CTU Prague, zchochul@cern.ch
 
 #include <arrow/type_fwd.h>
+#include <fairlogger/Logger.h>
 #include <vector>
 #include "Framework/AnalysisTask.h"
 #include "Framework/runDataProcessing.h"
@@ -552,26 +553,31 @@ struct femtoUniversePairTaskTrackTrackExtended {
   /// \param col subscribe to the collision table (Monte Carlo Reconstructed reconstructed)
   /// \param parts subscribe to joined table FemtoUniverseParticles and FemtoUniverseMCLables to access Monte Carlo truth
   /// \param FemtoUniverseMCParticles subscribe to the Monte Carlo truth table
-  void processSameEventMC(o2::aod::FDCollision& col,
+  void processSameEventMC(o2::aod::FDCollisions& cols,
                           soa::Join<FilteredFemtoFullParticles, aod::FDMCLabels>& parts,
                           o2::aod::FDMCParticles&)
   {
-    fillCollision(col);
+    for (const auto& col : cols) {
+      fillCollision(col);
 
-    auto groupMCTruth1{partsOneMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
-    efficiencyCalculator.doMCTruth<1>(groupMCTruth1, trackonefilter.ConfPDGCodePartOne);
+      auto groupMCTruth1{partsOneMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+      efficiencyCalculator.doMCTruth<1>(trackonefilter.ConfPDGCodePartOne, groupMCTruth1);
 
-    if (!ConfIsSame) {
-      auto groupMCTruth2{partsTwoMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
-      efficiencyCalculator.doMCTruth<2>(groupMCTruth2, tracktwofilter.ConfPDGCodePartTwo);
+      if (!ConfIsSame) {
+        auto groupMCTruth2{partsTwoMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+        efficiencyCalculator.doMCTruth<2>(tracktwofilter.ConfPDGCodePartTwo, groupMCTruth2);
+      }
+
+      auto groupMCReco1 = partsOneMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+      auto groupMCReco2 = partsTwoMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+
+      doSameEvent<true>(groupMCReco1, groupMCReco2, parts, col.magField(), col.multNtr());
     }
 
-    auto groupMCReco1 = partsOneMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
-    auto groupMCReco2 = partsTwoMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
-
-    doSameEvent<true>(groupMCReco1, groupMCReco2, parts, col.magField(), col.multNtr());
-
     efficiencyCalculator.calculate();
+    // auto bc = cols.iteratorAt(0).template bc_as<aod::BCsWithTimestamps>();
+    LOG(info) << "saving...";
+    efficiencyCalculator.save();
   }
   PROCESS_SWITCH(femtoUniversePairTaskTrackTrackExtended, processSameEventMC, "Enable processing same event for Monte Carlo", false);
 

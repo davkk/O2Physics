@@ -13,7 +13,6 @@
 /// \brief Tasks that reads the track tables used for the pairing and builds pairs of two tracks
 /// \author Zuzanna Chochulska, WUT Warsaw & CTU Prague, zchochul@cern.ch
 /// \author Alicja Płachta, WUT Warsaw, alicja.plachta@cern.ch
-/// \author Dawid Karpiński, WUT Warsaw, dawid.karpinski@cern.ch
 
 #include "Framework/AnalysisTask.h"
 #include "Framework/runDataProcessing.h"
