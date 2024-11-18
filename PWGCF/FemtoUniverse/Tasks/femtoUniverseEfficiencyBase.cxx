@@ -14,9 +14,11 @@
 /// \author Zuzanna Chochulska, WUT Warsaw & CTU Prague, zchochul@cern.ch
 /// \author Alicja Płachta, WUT Warsaw, alicja.plachta@cern.ch
 
+#include <vector>
 #include "Framework/AnalysisTask.h"
 #include "Framework/runDataProcessing.h"
 #include "Framework/HistogramRegistry.h"
+#include "Framework/RunningWorkflowInfo.h"
 
 #include "PWGCF/FemtoUniverse/Core/FemtoUniverseParticleHisto.h"
 #include "PWGCF/FemtoUniverse/Core/FemtoUniverseEventHisto.h"
@@ -117,39 +119,27 @@ struct femtoUniverseEfficiencyBase {
   HistogramRegistry registryPDG{"PDGHistos", {}, OutputObjHandlingPolicy::AnalysisObject, false, true};
   HistogramRegistry registryMCOrigin{"MCOriginHistos", {}, OutputObjHandlingPolicy::AnalysisObject, false, true};
 
-  HistogramRegistry efficiency{"Efficiency", {}, OutputObjHandlingPolicy::AnalysisObject, false, true};
-  std::shared_ptr<TH1> efficiencyHistPart1;
-  std::shared_ptr<TH1> efficiencyHistPart2;
-
   void init(InitContext&)
   {
+
     eventHisto.init(&qaRegistry);
     trackHistoPartOneGen.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarPDGBins, 0, ConfPDGCodePartOne, false);
     trackHistoPartOneRec.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarDCABins, 0, ConfPDGCodePartOne, ConfIsDebug);
-
     registryMCOrigin.add("part1/hPt", " ;#it{p}_{T} (GeV/c); Entries", {HistType::kTH1F, {{240, 0, 6}}});
     registryPDG.add("part1/PDGvspT", "PDG;#it{p}_{T} (GeV/c); PDG", {HistType::kTH2F, {{500, 0, 5}, {16001, -8000.5, 8000.5}}});
-
-    efficiencyHistPart1 = std::get<std::shared_ptr<TH1>>(efficiency.add("part1/efficiency", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", {HistType::kTH1F, {{100, 0, 4}}}));
-
     if (ConfParticleTypePartOne == uint8_t(aod::femtouniverseparticle::ParticleType::kV0)) {
       trackHistoV0OneRec.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarCPABins, 0, ConfPDGCodePartOne, ConfIsDebug);
       trackHistoV0OneChildPosRec.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarDCABins, 0, 0, ConfIsDebug, "posChildV0_1");
       trackHistoV0OneChildNegRec.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarDCABins, 0, 0, ConfIsDebug, "negChildV0_1");
-
       registryPDG.add("part1/dpositive/PDGvspT", "PDG;#it{p}_{T} (GeV/c); PDG", {HistType::kTH2F, {{500, 0, 5}, {16001, -8000.5, 8000.5}}});
       registryPDG.add("part1/dnegative/PDGvspT", "PDG;#it{p}_{T} (GeV/c); PDG", {HistType::kTH2F, {{500, 0, 5}, {16001, -8000.5, 8000.5}}});
     }
 
+    registryPDG.add("part2/PDGvspT", "PDG;#it{p}_{T} (GeV/c); PDG", {HistType::kTH2F, {{500, 0, 5}, {16001, -8000.5, 8000.5}}});
     if (!ConfIsSame) {
       trackHistoPartTwoGen.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarPDGBins, 0, ConfPDGCodePartTwo, false);
       trackHistoPartTwoRec.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarDCABins, 0, ConfPDGCodePartTwo, ConfIsDebug);
-
       registryMCOrigin.add("part2/hPt", " ;#it{p}_{T} (GeV/c); Entries", {HistType::kTH1F, {{240, 0, 6}}});
-      registryPDG.add("part2/PDGvspT", "PDG;#it{p}_{T} (GeV/c); PDG", {HistType::kTH2F, {{500, 0, 5}, {16001, -8000.5, 8000.5}}});
-
-      efficiencyHistPart2 = std::get<std::shared_ptr<TH1>>(efficiency.add("part2/efficiency", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", {HistType::kTH1F, {{100, 0, 4}}}));
-
       if (ConfParticleTypePartTwo == uint8_t(aod::femtouniverseparticle::ParticleType::kV0)) {
         trackHistoV0TwoRec.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarCPABins, 0, ConfPDGCodePartTwo, ConfIsDebug);
         trackHistoV0TwoChildPosRec.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarDCABins, 0, 0, ConfIsDebug, "posChildV0_2");
@@ -293,7 +283,7 @@ struct femtoUniverseEfficiencyBase {
   {
     /// Histogramming same event
     for (auto& part : grouppartsOneMCGen) {
-      if (!ConfNoPDGPartOne && (static_cast<int>(part.pidcut()) != ConfPDGCodePartOne)) {
+      if (!ConfNoPDGPartOne && part.pidcut() != ConfPDGCodePartOne) {
         continue;
       }
       trackHistoPartOneGen.fillQA<isMC, false>(part);
@@ -301,7 +291,7 @@ struct femtoUniverseEfficiencyBase {
 
     if (!ConfIsSame) {
       for (auto& part : grouppartsTwoMCGen) {
-        if (!ConfNoPDGPartTwo && (static_cast<int>(part.pidcut()) != ConfPDGCodePartTwo)) {
+        if (!ConfNoPDGPartTwo && part.pidcut() != ConfPDGCodePartTwo) {
           continue;
         }
         trackHistoPartTwoGen.fillQA<isMC, false>(part);
@@ -542,46 +532,21 @@ struct femtoUniverseEfficiencyBase {
 
   /// process function for to call doMCRecTrackTrack with Data
   /// \param col subscribe to the collision table (Data)
-  void processTrackTrack(FilteredFDCollisions& collisions, FemtoFullParticles&, aod::FDMCParticles const&)
+  void processTrackTrack(FilteredFDCollision& col,
+                         FemtoFullParticles&, aod::FDMCParticles const&)
   {
-    for (const auto& collision : collisions) {
-      fillCollision(collision);
-
-      // MCGen
-      auto thegrouppartsOneMCGen = partsOneMCGen->sliceByCached(aod::femtouniverseparticle::fdCollisionId, collision.globalIndex(), cache);
-      auto thegrouppartsTwoMCGen = partsTwoGen->sliceByCached(aod::femtouniverseparticle::fdCollisionId, collision.globalIndex(), cache);
-
-      doMCGen<false>(thegrouppartsOneMCGen, thegrouppartsTwoMCGen);
-
-      // MCRec
-      auto thegroupPartsTrackOneRec = partsTrackOneMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, collision.globalIndex(), cache);
-      auto thegroupPartsTrackTwoRec = partsTrackTwoMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, collision.globalIndex(), cache);
-
-      if (ConfIsDebug) {
-        doMCRecTrackTrack<false, true>(thegroupPartsTrackOneRec, thegroupPartsTrackTwoRec);
-      } else {
-        doMCRecTrackTrack<false, false>(thegroupPartsTrackOneRec, thegroupPartsTrackTwoRec);
-      }
-    }
-
-    // efficiency for particle 1
-    auto mcRecHist1{registryMCOrigin.get<TH1>(HIST("part1/hPt"))};
-    auto mcGenHist1{qaRegistry.get<TH1>(HIST("MCTruthTracks_one/hPt"))};
-
-    for (int bin{0}; bin < efficiencyHistPart1->GetNbinsX(); bin++) {
-      auto denom{mcGenHist1->GetBinContent(bin)};
-      efficiencyHistPart1->SetBinContent(bin, denom == 0 ? 0 : mcRecHist1->GetBinContent(bin) / denom);
-    }
-
-    if (!ConfIsSame) {
-      // efficiency for particle 2
-      auto mcRecHist2{registryMCOrigin.get<TH1>(HIST("part2/hPt"))};
-      auto mcGenHist2{qaRegistry.get<TH1>(HIST("MCTruthTracks_two/hPt"))};
-
-      for (int bin{0}; bin < efficiencyHistPart2->GetNbinsX(); bin++) {
-        auto denom{mcGenHist2->GetBinContent(bin)};
-        efficiencyHistPart2->SetBinContent(bin, denom == 0 ? 0 : mcRecHist2->GetBinContent(bin) / denom);
-      }
+    fillCollision(col);
+    // MCGen
+    auto thegrouppartsOneMCGen = partsOneMCGen->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+    auto thegrouppartsTwoMCGen = partsTwoGen->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+    doMCGen<false>(thegrouppartsOneMCGen, thegrouppartsTwoMCGen);
+    // MCRec
+    auto thegroupPartsTrackOneRec = partsTrackOneMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+    auto thegroupPartsTrackTwoRec = partsTrackTwoMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+    if (ConfIsDebug) {
+      doMCRecTrackTrack<false, true>(thegroupPartsTrackOneRec, thegroupPartsTrackTwoRec);
+    } else {
+      doMCRecTrackTrack<false, false>(thegroupPartsTrackOneRec, thegroupPartsTrackTwoRec);
     }
   }
   PROCESS_SWITCH(femtoUniverseEfficiencyBase, processTrackTrack, "Enable processing track-track efficiency task", true);
