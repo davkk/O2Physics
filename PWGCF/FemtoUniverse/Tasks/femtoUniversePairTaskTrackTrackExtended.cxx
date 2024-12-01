@@ -330,7 +330,7 @@ struct femtoUniversePairTaskTrackTrackExtended {
 
   void init(InitContext& ic)
   {
-    effCalc.saveAfterProcess(ic);
+    effCalc.saveOnStop(ic);
 
     eventHisto.init(&qaRegistry);
     trackHistoPartOne.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarBins, twotracksconfigs.ConfIsMC, trackonefilter.ConfPDGCodePartOne, true); // last true = isDebug
