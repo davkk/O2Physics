@@ -191,8 +191,9 @@ struct femtoUniversePairTaskTrackTrackExtended {
   HistogramRegistry resultRegistry{"Correlations", {}, OutputObjHandlingPolicy::AnalysisObject};
   HistogramRegistry MixQaRegistry{"MixQaRegistry", {}, OutputObjHandlingPolicy::AnalysisObject};
 
-  OutputObj<TH1F> effHist{TH1F("Efficiency_part1", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4)};
-  EfficiencyCalculator<femtoUniversePairTaskTrackTrackExtended> effCalc{this, &qaRegistry, trackonefilter.ConfPDGCodePartOne, effHist.object.get()};
+  OutputObj<TH1F> effHist1{TH1F("Efficiency_part1", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4)};
+  OutputObj<TH1F> effHist2{TH1F("Efficiency_part2", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4)};
+  EfficiencyCalculator efficiencyCalculator;
 
   /// @brief Counter for particle swapping
   int fNeventsProcessed = 0;
@@ -330,7 +331,15 @@ struct femtoUniversePairTaskTrackTrackExtended {
 
   void init(InitContext& ic)
   {
-    effCalc.saveOnStop(ic);
+    efficiencyCalculator
+      .setIsTest(true)
+      .withCCDBPath("Users/d/dkarpins/")
+      .withRegistry(&qaRegistry)
+      .setParticle<1>(trackonefilter.ConfPDGCodePartOne, effHist1.object.get())
+      .setParticle<2>(tracktwofilter.ConfPDGCodePartTwo, effHist2.object.get())
+      .init();
+
+    efficiencyCalculator.saveOnStop(ic);
 
     eventHisto.init(&qaRegistry);
     trackHistoPartOne.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarBins, twotracksconfigs.ConfIsMC, trackonefilter.ConfPDGCodePartOne, true); // last true = isDebug
@@ -475,7 +484,11 @@ struct femtoUniversePairTaskTrackTrackExtended {
           continue;
         }
 
-        float weight = effCalc.getWeight(p1);
+        float weight = efficiencyCalculator.getWeight<1>(p1);
+        if (!ConfIsSame) {
+          weight *= efficiencyCalculator.getWeight<2>(p2);
+        }
+
         if (swpart)
           sameEventCont.setPair<isMC>(p1, p2, multCol, twotracksconfigs.ConfUse3D, weight);
         else
@@ -532,8 +545,12 @@ struct femtoUniversePairTaskTrackTrackExtended {
           continue;
         }
 
-        // float weight = efficiencyCalculator.getWeight(p1);
-        sameEventCont.setPair<isMC>(p1, p2, multCol, twotracksconfigs.ConfUse3D);
+        float weight = efficiencyCalculator.getWeight<1>(p1);
+        if (!ConfIsSame) {
+          weight *= efficiencyCalculator.getWeight<2>(p2);
+        }
+
+        sameEventCont.setPair<isMC>(p1, p2, multCol, twotracksconfigs.ConfUse3D, weight);
       }
     }
   }
@@ -564,8 +581,13 @@ struct femtoUniversePairTaskTrackTrackExtended {
     for (const auto& col : cols) {
       fillCollision(col);
 
-      auto groupMCTruth{partsOneMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
-      effCalc.doMCTruth(trackonefilter.ConfPDGCodePartOne, groupMCTruth);
+      auto groupMCTruth1{partsOneMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+      efficiencyCalculator.doMCTruth<1>(groupMCTruth1);
+
+      if (!ConfIsSame) {
+        auto groupMCTruth2{partsTwoMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+        efficiencyCalculator.doMCTruth<2>(groupMCTruth2);
+      }
 
       auto groupMCReco1 = partsOneMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
       auto groupMCReco2 = partsTwoMCReco->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
@@ -573,12 +595,9 @@ struct femtoUniversePairTaskTrackTrackExtended {
       doSameEvent<true>(groupMCReco1, groupMCReco2, parts, col.magField(), col.multNtr());
     }
 
-    std::shared_ptr<TH1> truth{qaRegistry.get<TH1>(HIST("MCTruthTracks_one/hPt"))};
-    std::shared_ptr<TH1> reco{qaRegistry.get<TH1>(HIST("Tracks_one_MC/hPt"))};
-
-    for (int bin{0}; bin < effHist->GetNbinsX(); bin++) {
-      auto denom{truth->GetBinContent(bin)};
-      effHist->SetBinContent(bin, denom == 0 ? 0 : reco->GetBinContent(bin) / denom);
+    efficiencyCalculator.calculate<1>();
+    if (!ConfIsSame) {
+      efficiencyCalculator.calculate<2>();
     }
 
     LOG(info) << "### PROCESS DONE";
