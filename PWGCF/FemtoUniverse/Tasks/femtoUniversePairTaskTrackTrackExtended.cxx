@@ -337,9 +337,8 @@ struct femtoUniversePairTaskTrackTrackExtended {
       .withRegistry(&qaRegistry)
       .setParticle<1>(trackonefilter.ConfPDGCodePartOne, effHist1.object.get())
       .setParticle<2>(tracktwofilter.ConfPDGCodePartTwo, effHist2.object.get())
+      .saveOnStop(ic)
       .init();
-
-    efficiencyCalculator.saveOnStop(ic);
 
     eventHisto.init(&qaRegistry);
     trackHistoPartOne.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarBins, twotracksconfigs.ConfIsMC, trackonefilter.ConfPDGCodePartOne, true); // last true = isDebug
