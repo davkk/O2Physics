@@ -16,7 +16,7 @@
 /// \author Anton Riedel, TU München, anton.riedel@tum.de
 /// \author Zuzanna Chochulska, WUT Warsaw & CTU Prague, zchochul@cern.ch
 
-#include <arrow/type_fwd.h>
+#include <Framework/Configurable.h>
 #include <fairlogger/Logger.h>
 #include <vector>
 #include "Framework/AnalysisTask.h"
@@ -104,6 +104,8 @@ struct femtoUniversePairTaskTrackTrackExtended {
 
   Partition<soa::Join<FilteredFemtoFullParticles, aod::FDMCLabels>> partsOneMCTruth =
     aod::femtouniverseparticle::partType == static_cast<uint8_t>(aod::femtouniverseparticle::ParticleType::kMCTruthTrack) &&
+    // aod::femtouniverseparticle::pidcut == trackonefilter.ConfPDGCodePartOne &&
+    // aod::femtouniverseparticle::sign == trackonefilter.ConfChargePart1 &&
     aod::femtouniverseparticle::pt < trackonefilter.ConfPtHighPart1 &&
     aod::femtouniverseparticle::pt > trackonefilter.ConfPtLowPart1;
 
@@ -191,9 +193,15 @@ struct femtoUniversePairTaskTrackTrackExtended {
   HistogramRegistry resultRegistry{"Correlations", {}, OutputObjHandlingPolicy::AnalysisObject};
   HistogramRegistry MixQaRegistry{"MixQaRegistry", {}, OutputObjHandlingPolicy::AnalysisObject};
 
-  OutputObj<TH1F> effHist1{TH1F("Efficiency_part1", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4)};
-  OutputObj<TH1F> effHist2{TH1F("Efficiency_part2", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4)};
-  EfficiencyCalculator efficiencyCalculator;
+  struct : ConfigurableGroup {
+    Configurable<bool> shouldCalculate{"ConfEfficiencyCalculate", false, "Should calculate efficiency"};
+    Configurable<bool> shouldUpload{"ConfEfficiencyUpload", false, "Should upload to CCDB"};
+    Configurable<bool> shouldApplyCorrections{"ConfEfficiencyApplyCorrections", false, "Should apply corrections from efficinecy"};
+
+    OutputObj<TH1F> hEff1{TH1F("Efficiency_part1", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4)};
+    OutputObj<TH1F> hEff2{TH1F("Efficiency_part2", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4)};
+  } effConfGroup;
+  EfficiencyCalculator efficiencyCalculator{effConfGroup};
 
   /// @brief Counter for particle swapping
   int fNeventsProcessed = 0;
@@ -333,10 +341,10 @@ struct femtoUniversePairTaskTrackTrackExtended {
   {
     efficiencyCalculator
       .setIsTest(true)
-      .withCCDBPath("Users/d/dkarpins/")
+      .withCCDBPath("Users/d/dkarpins")
       .withRegistry(&qaRegistry)
-      .setParticle<1>(trackonefilter.ConfPDGCodePartOne, effHist1.object.get())
-      .setParticle<2>(tracktwofilter.ConfPDGCodePartTwo, effHist2.object.get())
+      .setParticle<1>(trackonefilter.ConfPDGCodePartOne)
+      .setParticle<2>(tracktwofilter.ConfPDGCodePartTwo)
       .saveOnStop(ic)
       .init();
 
@@ -557,15 +565,30 @@ struct femtoUniversePairTaskTrackTrackExtended {
   /// process function for to call doSameEvent with Data
   /// \param col subscribe to the collision table (Data)
   /// \param parts subscribe to the femtoUniverseParticleTable
-  void processSameEvent(o2::aod::FDCollision& col,
+  void processSameEvent(o2::aod::FDCollisions& cols,
                         FilteredFemtoFullParticles& parts)
   {
-    fillCollision(col);
+    for (const auto& col : cols) {
+      fillCollision(col);
 
-    auto thegroupPartsOne = partsOne->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
-    auto thegroupPartsTwo = partsTwo->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+      auto groupMCTruth1{partsOneMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+      efficiencyCalculator.doMCTruth<1>(groupMCTruth1);
 
-    doSameEvent<false>(thegroupPartsOne, thegroupPartsTwo, parts, col.magField(), col.multNtr());
+      if (!ConfIsSame) {
+        auto groupMCTruth2{partsTwoMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+        efficiencyCalculator.doMCTruth<2>(groupMCTruth2);
+      }
+
+      auto thegroupPartsOne = partsOne->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+      auto thegroupPartsTwo = partsTwo->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
+
+      doSameEvent<false>(thegroupPartsOne, thegroupPartsTwo, parts, col.magField(), col.multNtr());
+    }
+
+    efficiencyCalculator.calculate<1>();
+    if (!ConfIsSame) {
+      efficiencyCalculator.calculate<2>();
+    }
   }
   PROCESS_SWITCH(femtoUniversePairTaskTrackTrackExtended, processSameEvent, "Enable processing same event", true);
 
@@ -599,7 +622,7 @@ struct femtoUniversePairTaskTrackTrackExtended {
       efficiencyCalculator.calculate<2>();
     }
 
-    LOG(info) << "### PROCESS DONE";
+    LOG(info) << "PROCESS SAME EVENT MC";
   }
   PROCESS_SWITCH(femtoUniversePairTaskTrackTrackExtended, processSameEventMC, "Enable processing same event for Monte Carlo", false);
 
