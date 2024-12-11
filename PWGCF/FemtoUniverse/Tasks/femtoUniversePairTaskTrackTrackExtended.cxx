@@ -103,7 +103,7 @@ struct femtoUniversePairTaskTrackTrackExtended {
     aod::femtouniverseparticle::pt < trackonefilter.ConfPtHighPart1 &&
     aod::femtouniverseparticle::pt > trackonefilter.ConfPtLowPart1;
 
-  Partition<soa::Join<FilteredFemtoFullParticles, aod::FDMCParticles, aod::FDMCLabels>> partsOneMCTruth =
+  Partition<soa::Join<FilteredFemtoFullParticles, /* aod::FDMCParticles, */ aod::FDMCLabels>> partsOneMCTruth =
     aod::femtouniverseparticle::partType == static_cast<uint8_t>(aod::femtouniverseparticle::ParticleType::kMCTruthTrack) &&
     // aod::femtouniverseMCparticle::pdgMCTruth == trackonefilter.ConfPDGCodePartOne &&
     // aod::femtouniverseparticle::sign == trackonefilter.ConfChargePart1 && // sign == -128
@@ -194,8 +194,8 @@ struct femtoUniversePairTaskTrackTrackExtended {
   HistogramRegistry resultRegistry{"Correlations", {}, OutputObjHandlingPolicy::AnalysisObject};
   HistogramRegistry MixQaRegistry{"MixQaRegistry", {}, OutputObjHandlingPolicy::AnalysisObject};
 
-  EFFICIENCY_CONFIGURABLES(effConfGroup);
-  EfficiencyCalculator efficiencyCalculator{effConfGroup};
+  EfficiencyConfigurableGroup effConfGroup{};
+  EfficiencyCalculator efficiencyCalculator{&effConfGroup};
 
   /// @brief Counter for particle swapping
   int fNeventsProcessed = 0;
@@ -340,9 +340,7 @@ struct femtoUniversePairTaskTrackTrackExtended {
     effConfGroup.hMCTruth2.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarPDGBins, false, tracktwofilter.ConfPDGCodePartTwo, false);
 
     efficiencyCalculator
-      .setIsTest(true)
       .withRegistry(&qaRegistry)
-      .withCCDBPath("Users/d/dkarpins")
       .uploadOnStop(ic)
       .init();
 
