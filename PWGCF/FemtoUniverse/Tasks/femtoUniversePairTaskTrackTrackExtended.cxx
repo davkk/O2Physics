@@ -197,7 +197,7 @@ struct femtoUniversePairTaskTrackTrackExtended {
   HistogramRegistry resultRegistry{"Correlations", {}, OutputObjHandlingPolicy::AnalysisObject};
   HistogramRegistry MixQaRegistry{"MixQaRegistry", {}, OutputObjHandlingPolicy::AnalysisObject};
 
-  EfficiencyConfigurableGroup effConfGroup{};
+  EfficiencyConfigurableGroup effConfGroup;
   EfficiencyCalculator efficiencyCalculator{&effConfGroup};
 
   /// @brief Counter for particle swapping
@@ -586,11 +586,11 @@ struct femtoUniversePairTaskTrackTrackExtended {
     for (const auto& col : cols) {
       fillCollision(col);
 
-      auto groupMCTruth1{partsOneMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+      auto groupMCTruth1 = partsOneMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
       efficiencyCalculator.doMCTruth<1>(groupMCTruth1);
 
       if (!ConfIsSame) {
-        auto groupMCTruth2{partsTwoMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache)};
+        auto groupMCTruth2 = partsTwoMCTruth->sliceByCached(aod::femtouniverseparticle::fdCollisionId, col.globalIndex(), cache);
         efficiencyCalculator.doMCTruth<2>(groupMCTruth2);
       }
 
