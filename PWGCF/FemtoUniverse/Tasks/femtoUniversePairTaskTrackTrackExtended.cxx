@@ -336,15 +336,15 @@ struct femtoUniversePairTaskTrackTrackExtended {
 
   void init(InitContext& ic)
   {
-    effConfGroup.hEff1.setObject(new TH1F("Efficiency_part1", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4));
-    effConfGroup.hEff2.setObject(new TH1F("Efficiency_part2", "Efficiency origin/generated ; p_{T} (GeV/c); Efficiency", 100, 0, 4));
-
+    effConfGroup.hEfficiency1.setObject(new TH1F("Efficiency_part1", "Efficiency origin/generated part1; p_{T} (GeV/c); Efficiency", 100, 0, 4));
     effConfGroup.hMCTruth1.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarPDGBins, false, trackonefilter.ConfPDGCodePartOne, false);
-    effConfGroup.hMCTruth2.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarPDGBins, false, tracktwofilter.ConfPDGCodePartTwo, false);
+    if (!ConfIsSame) {
+      effConfGroup.hEfficiency2.setObject(new TH1F("Efficiency_part2", "Efficiency origin/generated part2; p_{T} (GeV/c); Efficiency", 100, 0, 4));
+      effConfGroup.hMCTruth2.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarPDGBins, false, tracktwofilter.ConfPDGCodePartTwo, false);
+    }
 
-    efficiencyCalculator.setRegistry(&qaRegistry);
-    efficiencyCalculator.uploadOnStop(ic);
     efficiencyCalculator.init();
+    efficiencyCalculator.uploadOnStop(ic);
 
     eventHisto.init(&qaRegistry);
     trackHistoPartOne.init(&qaRegistry, ConfTempFitVarpTBins, ConfTempFitVarBins, twotracksconfigs.ConfIsMC, trackonefilter.ConfPDGCodePartOne, true); // last true = isDebug
@@ -600,9 +600,14 @@ struct femtoUniversePairTaskTrackTrackExtended {
       doSameEvent<true>(groupMCReco1, groupMCReco2, parts, col.magField(), col.multNtr());
     }
 
-    efficiencyCalculator.calculate<1>();
+    auto truth = qaRegistry.get<TH1>(HIST("MCTruthTracks_one/hPt"));
+    auto reco = qaRegistry.get<TH1>(HIST("Tracks_one_MC/hPt"));
+    efficiencyCalculator.calculate<1>(truth, reco);
+
     if (!ConfIsSame) {
-      efficiencyCalculator.calculate<2>();
+      auto truth = qaRegistry.get<TH1>(HIST("MCTruthTracks_two/hPt"));
+      auto reco = qaRegistry.get<TH1>(HIST("Tracks_two_MC/hPt"));
+      efficiencyCalculator.calculate<2>(truth, reco);
     }
 
     LOG(info) << "PROCESS SAME EVENT MC";
